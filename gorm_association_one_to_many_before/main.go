@@ -16,6 +16,8 @@ type User struct {
 	ID       uint64 `gorm:"primaryKey"`
 	Username string `gorm:"size:64"`
 	Password string `gorm:"size:255"`
+	Notes    []Note
+	CreditCard *CreditCard
 }
 
 type Note struct {
@@ -23,13 +25,15 @@ type Note struct {
 	ID      uint64 `gorm:"primaryKey"`
 	Name    string `gorm:"size:255"`
 	Content string `gorm:"type:text"`
-	UserID  uint64 `gorm:"index"`
+	UserID   uint64 `gorm:"index"`
+	User     User
 }
 
 type CreditCard struct {
 	gorm.Model
 	Number string
 	UserID uint64
+	User   User
 }
 
 var DB *gorm.DB
@@ -62,23 +66,21 @@ func main() {
 	dbMigrate()
 
 	var note Note
-	DB.First(&note)
-	var user User
-	DB.Where("id = ?", note.UserID).First(&user)
-	fmt.Printf("User from a note: %s\n", user.Username)
+	DB.Preload("User").First(&note)
+	fmt.Printf("User from a note: %s\n", note.User.Username)
 
 	fmt.Println("\n----------------")
 
+	var user User
+	DB.Preload("Notes").Preload("CreditCard").Where("username = ?", "codeheim").First(&user)
 	var notes []Note
 	DB.Where("user_id = ?", user.ID).Find(&notes)
 
 	fmt.Println("Notes from a user:")
-	for _, element := range notes {
+	for _, element := range user.Notes {
 		fmt.Printf("%s - %s\n", element.Name, element.Content)
 	}
 	fmt.Println("\n----------------")
 
-	var cc CreditCard
-	DB.Where("user_id = ?", user.ID).First(&cc)
-	fmt.Printf("Credit Card from a user: %s\n", cc.Number)
+	fmt.Printf("Credit Card from a user: %s\n", user.CreditCard.Number)
 }
